@@ -13,7 +13,6 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'products_count']
 
 
-
 class ProductSerializer(serializers.ModelSerializer):
     avg_rating = serializers.FloatField(read_only=True)
 

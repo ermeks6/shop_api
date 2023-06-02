@@ -1,8 +1,9 @@
 from django.db.models import Avg
 from rest_framework import generics
-from .models import Category, Product, Review
-from .serializers import CategorySerializer, ProductSerializer, ReviewSerializer
+from .models import Category, Product, Review, Tag
+from .serializers import CategorySerializer, ProductSerializer, ReviewSerializer, TagSerializer
 from django.db import models
+from rest_framework import status
 
 
 class CategoryListAPIView(generics.ListCreateAPIView):
@@ -19,6 +20,19 @@ class ProductDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
 
+    def create(self, request, *args, **kwargs):
+        tags_data = request.data.get('tags', [])
+        tags_serializer = TagSerializer(data=tags_data, many=True)
+        tags_serializer.is_valid(raise_exception=True)
+        tags = tags_serializer.save()
+        request.data['tags'] = [tag.pk for tag in tags]
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        tags_data = self.request.data.get('tags', [])
+        tags = Tag.objects.filter(pk__in=tags_data)
+        serializer.save(tags=tags)
+
 
 class ProductListAPIView(generics.ListAPIView):
     queryset = Product.objects.all()
@@ -33,6 +47,19 @@ class ProductDetailAPIView(generics.RetrieveAPIView):
         context = super().get_serializer_context()
         context['include_reviews'] = True
         return context
+
+    class ProductDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+        queryset = Product.objects.all()
+        serializer_class = ProductSerializer
+
+        def perform_update(self, serializer):
+            tags_data = self.request.data.get('tags', [])
+            tags = Tag.objects.filter(pk__in=tags_data)
+            serializer.save(tags=tags)
+
+        def perform_destroy(self, instance):
+            instance.tags.clear()
+            instance.delete()
 
 
 class ReviewListAPIView(generics.ListCreateAPIView):

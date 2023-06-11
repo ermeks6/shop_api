@@ -4,6 +4,12 @@ from .models import Category, Product, Review, Tag
 from .serializers import CategorySerializer, ProductSerializer, ReviewSerializer, TagSerializer
 from django.db import models
 from rest_framework import status
+from django.contrib.auth.models import User
+from django.core.mail import send_mail
+from django.conf import settings
+from rest_framework import generics, status
+from rest_framework.response import Response
+from .serializers import UserSerializer
 
 
 class CategoryListAPIView(generics.ListCreateAPIView):
@@ -70,5 +76,41 @@ class ReviewListAPIView(generics.ListCreateAPIView):
 class ReviewDetailAPIView(generics.RetrieveAPIView):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
+
+
+class RegisterUserView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save(is_active=False)
+
+        # Generate random code and send it to the user
+        code = generate_random_code()
+        user.profile.activation_code = code
+        user.profile.save()
+
+        subject = 'Account Activation'
+        message = f'Your activation code is: {code}'
+        send_mail(subject, message, settings.EMAIL_HOST_USER, [user.email])
+
+        return Response({'message': 'User registered successfully. Activation code has been sent to your email.'}, status=status.HTTP_201_CREATED)
+
+
+class ConfirmUserView(generics.GenericAPIView):
+    def post(self, request, *args, **kwargs):
+        code = request.data.get('code')
+        user = User.objects.get(profile__activation_code=code)
+
+        if not user.is_active:
+            user.is_active = True
+            user.profile.activation_code = ''
+            user.profile.save()
+            user.save()
+            return Response({'message': 'User confirmed successfully.'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'message': 'User is already confirmed.'}, status=status.HTTP_400_BAD_REQUEST)
 
 

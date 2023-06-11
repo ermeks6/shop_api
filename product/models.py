@@ -1,4 +1,16 @@
+from django.contrib.auth.models import User
 from django.db import models
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    activation_code = models.CharField(max_length=6, blank=True)
+
+    def __str__(self):
+        return self.user.username
+
+
+User.profile = property(lambda u: UserProfile.objects.get_or_create(user=u)[0])
 
 
 class Category(models.Model):
@@ -33,6 +45,7 @@ class Review(models.Model):
 
     def __str__(self):
         return self.text
+
 
 
 

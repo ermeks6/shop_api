@@ -20,18 +20,16 @@ class TagSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-def validate_tags(value):
-    existing_tags = Tag.objects.values_list('name', flat=True)
-    for tag in value:
-        if tag['name'] not in existing_tags:
-            raise serializers.ValidationError(f"Tag '{tag['name']}' does not exist.")
-    return value
-
-
 class ProductSerializer(serializers.ModelSerializer):
     avg_rating = serializers.FloatField(read_only=True)
-
     tags = TagSerializer(many=True)
+
+    def validate_tags(value):
+        existing_tags = Tag.objects.values_list('name', flat=True)
+        for tag in value:
+            if tag['name'] not in existing_tags:
+                raise serializers.ValidationError(f"Tag '{tag['name']}' does not exist.")
+        return value
 
     class Meta:
         model = Product
